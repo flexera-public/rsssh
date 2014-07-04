@@ -22,6 +22,14 @@ module RSSSH
       array.respond_to?(:sample) ? array.sample : array.choice
     end
 
+    def serialize(value)
+      JSON.generate(value, :quirks_mode => true)
+    end
+
+    def deserialize(value)
+      JSON.parse(value, :quirks_mode => true)
+    end
+
     def parse_config(options)
       require 'rubygems'
       require 'json'
@@ -42,9 +50,9 @@ module RSSSH
 
         details.each do |detail|
           key, value = detail.split(' ', 2)
-          config[host][key] = JSON.load(value)
+          config[host][key] = deserialize(value)
 
-          config[host][key] = JSON.load(config[host][key]) if key == 'LocalCommand'
+          config[host][key] = deserialize(config[host][key]) if key == 'LocalCommand'
         end
       end
 
@@ -57,9 +65,9 @@ module RSSSH
           file.puts("Host #{host}")
 
           config.each do |key, value|
-            value = JSON.generate(value) if key == 'LocalCommand'
+            value = serialize(value) if key == 'LocalCommand'
 
-            file.puts("  #{key} #{JSON.dump(value)}")
+            file.puts("  #{key} #{serialize(value)}")
           end
         end
       end
