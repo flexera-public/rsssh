@@ -6,6 +6,12 @@ or:
 
 <b>R</b>ight<b>S</b>cale <b>s</b>ecure <b>sh</b>ell
 
+This is a way of managing host aliases for RightScale servers. When an instance
+is destroyed and a new one is created for the same server (or server array), it
+uses the RightScale API to get the new IP to connect.
+
+There's a [short Asciinema demo][asciinema] if you want to see it in action.
+
 ## Installation ##
 
 Ensure that you have the [`right_api_client`][right_api_client] gem installed in
@@ -37,5 +43,6 @@ optional user to switch to and command to run after connecting. It then disables
 the local commands from being run by `ssh` by setting the global
 `PermitLocalCommand` property to false.
 
+[asciinema]: https://asciinema.org/a/10632
 [right_api_client]: https://github.com/rightscale/right_api_client
 [ssh_config]: http://www.openbsd.org/cgi-bin/man.cgi?query=ssh_config&sektion=5
