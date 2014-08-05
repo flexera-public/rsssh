@@ -46,3 +46,6 @@ the local commands from being run by `ssh` by setting the global
 [asciinema]: https://asciinema.org/a/10632
 [right_api_client]: https://github.com/rightscale/right_api_client
 [ssh_config]: http://www.openbsd.org/cgi-bin/man.cgi?query=ssh_config&sektion=5
+
+## Maintained By ##
+[Sean McGivern](https://github.com/smcgivern)
