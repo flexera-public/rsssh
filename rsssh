@@ -182,13 +182,13 @@ module RSSSH
       account, deployment, server, user, command = config_host['LocalCommand']
 
       rssh_user = user || '\$USER'
-      rssh_command = "sudo su - \\\"#{rssh_user}\\\""
+      rssh_command = "sudo su - \"#{rssh_user}\""
 
       if command && !command.empty?
-        rssh_command += " -c \\\"#{command}\\\""
+        rssh_command += " -c '\\''#{command.gsub("'", "'\\\\''")}'\\''"
       end
 
-      exec "ssh -t -F #{options[:config_file]} #{host} \"#{rssh_command}\""
+      exec "ssh -t -F #{options[:config_file]} #{host} '#{rssh_command}'"
     end
 
     def list(host, options)
