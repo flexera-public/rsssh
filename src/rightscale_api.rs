@@ -1,6 +1,7 @@
 use cookie::CookieJar;
 use hyper::client::Client;
 use hyper::header::{Cookie, SetCookie};
+use hyper::status::StatusCode;
 use rustc_serialize::json::Json;
 use std::io::prelude::*;
 
@@ -18,6 +19,10 @@ fn log_in<'a>(email: &str, password: &str, account: i32) -> CookieJar<'a> {
                        email, password, account))
         .send()
         .unwrap();
+
+    if login_request.status != StatusCode::NoContent {
+        die!("Failed to log in to the RightScale API, got response: {}", login_request.status)
+    }
 
     login_request.headers.get::<SetCookie>().unwrap().apply_to_cookie_jar(&mut cookie_jar);
     cookie_jar
