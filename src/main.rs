@@ -4,16 +4,16 @@ extern crate docopt;
 extern crate libc;
 extern crate netrc;
 extern crate rustc_serialize;
+extern crate toml;
 
 use std::env;
-use std::io::BufReader;
 use std::io::prelude::*;
-use std::fs::File;
 
 use docopt::Docopt;
-use netrc::Netrc;
+use rustc_serialize::Encodable;
 
 #[macro_use] mod die;
+mod config;
 mod rightscale_api;
 mod ssh;
 
@@ -64,16 +64,18 @@ struct Args {
     arg_host: String,
     flag_help: bool,
     flag_config: String,
-    flag_account: Option<i32>,
+    flag_account: Option<i64>,
     flag_server: Option<String>,
     flag_user: Option<String>,
     flag_command: Option<String>,
 }
 
-#[derive(Debug)]
-struct Credentials {
-    email: Option<String>,
-    password: Option<String>,
+#[derive(Clone, Debug, RustcDecodable, RustcEncodable)]
+struct HostConfig {
+    account: Option<i64>,
+    server: Option<String>,
+    user: Option<String>,
+    command: Option<String>,
 }
 
 fn main() {
@@ -103,19 +105,37 @@ fn delete(host: &str, config: &str) {
 }
 
 fn connect(args: Args) {
-    let netrc = read_netrc("~/.netrc");
+    let netrc = config::read_netrc("~/.netrc");
     let email = override_from_env(netrc.email, "RSSSH_EMAIL");
     let password = override_from_env(netrc.password, "RSSSH_PASSWORD");
-    let account = args.flag_account;
-    let server = args.flag_server;
-    let user = args.flag_user;
-    let command = args.flag_command;
+    let mut config = config::read_config(&args.flag_config);
+    let read_only_config = config.clone();
+
+    let host_config = read_only_config
+        .get(&args.arg_host)
+        .and_then(|host| toml::decode::<HostConfig>(host.clone()))
+        .unwrap_or(HostConfig { account: None, server: None, user: None, command: None });
+
+    let account = args.flag_account.or(host_config.account);
+    let server = args.flag_server.or(host_config.server);
 
     if let (Some(email), Some(password)) = (email, password) {
         if let (Some(account), Some(server)) = (account, server) {
             let ip = rightscale_api::find_ip(&email, &password, account, &server);
 
-            ssh::ssh_connect(ip, user, command);
+            let new_host_config = HostConfig {
+                account: Some(account),
+                server: Some(server),
+                user: args.flag_user.or(host_config.user),
+                command: args.flag_command.or(host_config.command)
+            };
+
+            config.remove(&args.arg_host);
+            config.insert(args.arg_host, toml::encode(&new_host_config));
+
+            config::write_config(&args.flag_config, config);
+
+            ssh::ssh_connect(ip, new_host_config.user, new_host_config.command);
         } else {
             die!(ERROR_ACCOUNT_SERVER_REQUIRED);
         }
@@ -126,45 +146,6 @@ fn connect(args: Args) {
 
 fn override_from_env(value: Option<String>, env_var: &str) -> Option<String> {
     env::var_os(env_var).and_then(|s| Some(s.to_str().unwrap().to_string())).or(value)
-}
-
-fn option_string(string: String) -> Option<String> {
-    if string.is_empty() {
-        None
-    } else {
-        Some(string)
-    }
-}
-
-fn find_rsssh_host(hosts: Vec<(String, netrc::Machine)>) -> Option<Credentials> {
-    hosts
-        .into_iter()
-        .find(|host| host.0 == "rsssh")
-        .map(|host| Credentials { email: option_string(host.1.login), password: host.1.password })
-}
-
-fn read_netrc(path: &str) -> Credentials {
-    let file = File::open(expand_home_directory(path));
-    let no_credentials = Credentials { email: None, password: None };
-    let result = file
-        .map(|file| BufReader::new(file))
-        .map(|buffer| Netrc::parse(buffer).map(|netrc| netrc.hosts).unwrap_or(Vec::new()))
-        .map(find_rsssh_host);
-
-    match result {
-        Ok(r) => r.unwrap_or(no_credentials),
-        Err(e) => {
-            println!("Error finding config: {:?}", e);
-            no_credentials
-        }
-    }
-}
-
-fn expand_home_directory(path: &str) -> String {
-    match env::var_os("HOME") {
-        Some(s) => path.to_string().replace("~", s.to_str().unwrap()),
-        None => path.to_string()
-    }
 }
 
 #[cfg(test)]

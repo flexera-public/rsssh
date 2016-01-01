@@ -6,9 +6,9 @@ use rustc_serialize::json::Json;
 use std::io::prelude::*;
 
 header! { (XApiVersion, "X-Api-Version") => [String] }
-header! { (XAccount, "X-Account") => [i32] }
+header! { (XAccount, "X-Account") => [i64] }
 
-fn log_in<'a>(email: &str, password: &str, account: i32) -> CookieJar<'a> {
+fn log_in<'a>(email: &str, password: &str, account: i64) -> CookieJar<'a> {
     let client = Client::new();
     let mut cookie_jar = CookieJar::new(b"secret");
 
@@ -28,7 +28,7 @@ fn log_in<'a>(email: &str, password: &str, account: i32) -> CookieJar<'a> {
     cookie_jar
 }
 
-pub fn find_ip(email: &str, password: &str, account: i32, server: &str) -> String {
+pub fn find_ip(email: &str, password: &str, account: i64, server: &str) -> String {
     let client = Client::new();
     let cookie_jar = log_in(email, password, account);
     let mut body = String::new();
