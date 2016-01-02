@@ -97,11 +97,34 @@ fn main() {
 }
 
 fn list(config: &str) {
-    println!("list: {}", config);
+    let hosts = config::read_config(config);
+
+    for (key, value) in hosts {
+        match toml::decode::<HostConfig>(value.clone()) {
+            Some(c) => print_host(key, c),
+            None => println!("{} has an invalid config (missing account or server?)", key)
+        }
+    }
 }
 
-fn delete(host: &str, config: &str) {
-    println!("delete: {}, {}", host, config);
+fn print_host(key: String, config: HostConfig) {
+    fn s(n: &str, x: Option<String>) -> String { x.map(|x| format!(", {}: {}", n, x)).unwrap_or("".to_string()) }
+
+    println!("{}: {{ account: {}{}{}{} }}",
+             key, config.account.map(|x| format!("{}", x)).unwrap_or("".to_string()),
+             s("server", config.server), s("user", config.user), s("command", config.command))
+}
+
+fn delete(host: &str, config_file: &str) {
+    let mut config = config::read_config(config_file);
+    let result = config.remove(host);
+
+    config::write_config(config_file, config);
+
+    match result.and_then(|result| toml::decode::<HostConfig>(result.clone())) {
+        Some(c) => print_host(format!("Host {} removed", host), c),
+        None => println!("Host {} removed", host)
+    }
 }
 
 fn connect(args: Args) {
