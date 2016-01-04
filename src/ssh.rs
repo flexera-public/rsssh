@@ -7,8 +7,11 @@ macro_rules! c_ptr {
     ($x:expr) => {{ CString::new($x).unwrap().as_ptr() }};
 }
 
-fn exec_ssh(ip: &str, command: &str) {
+fn exec_ssh(ip: &str, command: &str, verbose: bool) {
     let user_host: &str = &format!("rightscale@{}", ip);
+    let ssh_command = format!("ssh -t -o StrictHostKeychecking=no -o UserKnownHostsFile=/dev/null {} \"{}\"", user_host, command);
+
+    if verbose { println!("Running {}", ssh_command) }
 
     let argv: &[*const c_char] = &[c_ptr!("ssh"),
                                    c_ptr!("-t"),
@@ -22,7 +25,7 @@ fn exec_ssh(ip: &str, command: &str) {
 
     unsafe { execvp(argv[0], &argv[0]); }
 
-    die!("ssh command failed: ssh -t -o StrictHostKeychecking=no {} \"{}\"", user_host, command);
+    die!("ssh command failed: {}", ssh_command);
 }
 
 fn ssh_command_arg(user: Option<String>, command: Option<String>) -> String {
@@ -39,8 +42,8 @@ fn ssh_command_arg(user: Option<String>, command: Option<String>) -> String {
     }
 }
 
-pub fn ssh_connect(ip: String, user: Option<String>, command: Option<String>) {
-    exec_ssh(&ip, &ssh_command_arg(user, command));
+pub fn ssh_connect(ip: String, user: Option<String>, command: Option<String>, verbose: bool) {
+    exec_ssh(&ip, &ssh_command_arg(user, command), verbose);
 }
 
 #[cfg(test)]

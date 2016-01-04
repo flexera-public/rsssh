@@ -29,7 +29,7 @@ fn expand_home_directory(path: &str) -> String {
     }
 }
 
-pub fn read_config(path: &str) -> toml::Table {
+pub fn read_config(path: &str, verbose: bool) -> toml::Table {
     fn config_file_to_string(path: &str) -> Result<String, io::Error> {
         let mut file = try!(File::open(expand_home_directory(path)));
         let mut buffer = String::new();
@@ -45,13 +45,15 @@ pub fn read_config(path: &str) -> toml::Table {
     match config_string {
         Ok(r) => toml::Parser::new(&*r).parse().unwrap_or(empty_config),
         Err(e) => {
-            println!("Error reading config file {}: {:?}", path, e);
+            if verbose { println!("Error reading config file {}: {:?}", path, e) }
             empty_config
         }
     }
 }
 
-pub fn write_config(path: &str, config: toml::Table) {
+pub fn write_config(path: &str, config: toml::Table, verbose: bool) {
+    if verbose { println!("Writing config to {}: {:?}", path, config) }
+
     let file = File::create(expand_home_directory(path));
     let result = file.map(|mut file| file.write_all(&toml::encode_str(&config).into_bytes()));
 
@@ -61,7 +63,7 @@ pub fn write_config(path: &str, config: toml::Table) {
     }
 }
 
-pub fn read_netrc(path: &str) -> Credentials {
+pub fn read_netrc(path: &str, verbose: bool) -> Credentials {
     let option_string = |s: String| if s.is_empty() { None } else { Some(s) };
     let file = File::open(expand_home_directory(path));
     let no_credentials = Credentials { email: None, password: None };
@@ -75,9 +77,15 @@ pub fn read_netrc(path: &str) -> Credentials {
         });
 
     match result {
-        Ok(r) => r.unwrap_or(no_credentials),
+        Ok(r) => match r {
+            Some(credentials) => credentials,
+            None => {
+                if verbose { println!("Could not find credentials for machine 'rsssh' in netrc file {}", path) }
+                no_credentials
+            }
+        },
         Err(e) => {
-            println!("Error reading netrc file {}: {:?}", path, e);
+            if verbose { println!("Error reading netrc file {}: {:?}", path, e) }
             no_credentials
         }
     }

@@ -8,17 +8,16 @@ use std::io::prelude::*;
 header! { (XApiVersion, "X-Api-Version") => [String] }
 header! { (XAccount, "X-Account") => [i64] }
 
-fn log_in<'a>(email: &str, password: &str, account: i64) -> CookieJar<'a> {
+fn log_in<'a>(email: &str, password: &str, account: i64, verbose: bool) -> CookieJar<'a> {
     let client = Client::new();
-    let mut cookie_jar = CookieJar::new(b"secret");
+    let api_15 = XApiVersion("1.5".to_string());
+    let url = "https://my.rightscale.com/api/sessions";
+    let params = &format!("email={}&password={}&account_href=/api/accounts/{}", email, password, account);
 
-    let login_request = client
-        .post("https://my.rightscale.com/api/sessions")
-        .header(XApiVersion("1.5".to_string()))
-        .body(&format!("email={}&password={}&account_href=/api/accounts/{}",
-                       email, password, account))
-        .send()
-        .unwrap();
+    if verbose { println!("Logging in to RightScale API at {} with parameters: {}", url, params) }
+
+    let login_request = client.post(url).header(api_15).body(params).send().unwrap();
+    let mut cookie_jar = CookieJar::new(b"secret");
 
     if login_request.status != StatusCode::NoContent {
         die!("Failed to log in to the RightScale API, got response: {}", login_request.status)
@@ -28,20 +27,19 @@ fn log_in<'a>(email: &str, password: &str, account: i64) -> CookieJar<'a> {
     cookie_jar
 }
 
-pub fn find_ip(email: &str, password: &str, account: i64, server: &str, exact_match: bool) -> String {
+pub fn find_ip(email: &str, password: &str, account: i64, server: &str, exact_match: bool, verbose: bool) -> String {
     let client = Client::new();
-    let cookie_jar = log_in(email, password, account);
+    let cookie_jar = log_in(email, password, account, verbose);
     let server_name = if exact_match { server.to_string() } else { format!("%25{}%25", server) };
-    let mut body = String::new();
+    let api_16 = XApiVersion("1.6".to_string());
+    let x_account = XAccount(account);
+    let cookie = Cookie::from_cookie_jar(&cookie_jar);
+    let url = format!("https://my.rightscale.com/api/instances?filter=name%3D{}%26state%3Doperational", server_name);
 
-    let mut find = client
-        .get(&format!("https://my.rightscale.com/api/instances?filter=name%3D{}%26state%3Doperational",
-                      server_name))
-        .header(XApiVersion("1.6".to_string()))
-        .header(XAccount(account))
-        .header(Cookie::from_cookie_jar(&cookie_jar))
-        .send()
-        .unwrap();
+    if verbose { println!("Finding server: {}", url) }
+
+    let mut find = client.get(&url).header(api_16).header(x_account).header(cookie).send().unwrap();
+    let mut body = String::new();
 
     match find.read_to_string(&mut body) {
         Ok(_) => (),

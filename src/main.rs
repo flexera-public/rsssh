@@ -32,6 +32,7 @@ Options:
     --server=<server-name>      name of server or array; can use %25 as a wildcard
     --user=<user>               user to switch to after connect
     --command=<command>         command to run after connect (must include a shell; try suffixing `&& /bin/bash`)
+    --verbose                   log extra information to standard output
 
 To pass credentials for connecting to the RightScale API, either:
 1. Create a ~/.netrc file with an entry for the machine 'rsssh'. (Recommended.)
@@ -70,6 +71,7 @@ struct Args {
     flag_user: Option<String>,
     flag_command: Option<String>,
     flag_exact_match: Option<bool>,
+    flag_verbose: bool,
 }
 
 #[derive(Clone, Debug, RustcDecodable, RustcEncodable)]
@@ -89,9 +91,9 @@ fn main() {
     let cmd_list = args.cmd_list || (args.arg_host == "list");
 
     if args.cmd_delete {
-        delete(&args.arg_host, &args.flag_config)
+        delete(&args.arg_host, &args.flag_config, args.flag_verbose)
     } else if cmd_list {
-        list(&args.flag_config)
+        list(&args.flag_config, args.flag_verbose)
     } else if args.arg_host != "" {
         connect(args);
     } else {
@@ -99,8 +101,8 @@ fn main() {
     }
 }
 
-fn list(config: &str) {
-    let hosts = config::read_config(config);
+fn list(config: &str, verbose: bool) {
+    let hosts = config::read_config(config, verbose);
 
     for (key, value) in hosts {
         match toml::decode::<HostConfig>(value.clone()) {
@@ -118,11 +120,11 @@ fn print_host(key: String, config: HostConfig) {
              s("server", config.server), s("user", config.user), s("command", config.command))
 }
 
-fn delete(host: &str, config_file: &str) {
-    let mut config = config::read_config(config_file);
+fn delete(host: &str, config_file: &str, verbose: bool) {
+    let mut config = config::read_config(config_file, verbose);
     let result = config.remove(host);
 
-    config::write_config(config_file, config);
+    config::write_config(config_file, config, verbose);
 
     match result.and_then(|result| toml::decode::<HostConfig>(result.clone())) {
         Some(c) => print_host(format!("Host {} removed", host), c),
@@ -131,10 +133,11 @@ fn delete(host: &str, config_file: &str) {
 }
 
 fn connect(args: Args) {
-    let netrc = config::read_netrc("~/.netrc");
+    let verbose = args.flag_verbose;
+    let netrc = config::read_netrc("~/.netrc", verbose);
     let email = override_from_env(netrc.email, "RSSSH_EMAIL");
     let password = override_from_env(netrc.password, "RSSSH_PASSWORD");
-    let mut config = config::read_config(&args.flag_config);
+    let mut config = config::read_config(&args.flag_config, verbose);
     let read_only_config = config.clone();
 
     let host_config = read_only_config
@@ -148,7 +151,7 @@ fn connect(args: Args) {
 
     if let (Some(email), Some(password)) = (email, password) {
         if let (Some(account), Some(server)) = (account, server) {
-            let ip = rightscale_api::find_ip(&email, &password, account, &server, exact_match);
+            let ip = rightscale_api::find_ip(&email, &password, account, &server, exact_match, verbose);
 
             let new_host_config = HostConfig {
                 account: Some(account),
@@ -161,9 +164,9 @@ fn connect(args: Args) {
             config.remove(&args.arg_host);
             config.insert(args.arg_host, toml::encode(&new_host_config));
 
-            config::write_config(&args.flag_config, config);
+            config::write_config(&args.flag_config, config, verbose);
 
-            ssh::ssh_connect(ip, new_host_config.user, new_host_config.command);
+            ssh::ssh_connect(ip, new_host_config.user, new_host_config.command, verbose);
         } else {
             die!(ERROR_ACCOUNT_SERVER_REQUIRED);
         }
