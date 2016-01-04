@@ -62,27 +62,17 @@ pub fn write_config(path: &str, config: toml::Table) {
 }
 
 pub fn read_netrc(path: &str) -> Credentials {
-    fn option_string(string: String) -> Option<String> {
-        if string.is_empty() {
-            None
-        } else {
-            Some(string)
-        }
-    }
-
-    fn find_rsssh_host(hosts: Vec<(String, netrc::Machine)>) -> Option<Credentials> {
-        hosts
-            .into_iter()
-            .find(|host| host.0 == "rsssh")
-            .map(|host| Credentials { email: option_string(host.1.login), password: host.1.password })
-    }
-
+    let option_string = |s: String| if s.is_empty() { None } else { Some(s) };
     let file = File::open(expand_home_directory(path));
     let no_credentials = Credentials { email: None, password: None };
     let result = file
         .map(|file| BufReader::new(file))
         .map(|buffer| netrc::Netrc::parse(buffer).map(|netrc| netrc.hosts).unwrap_or(Vec::new()))
-        .map(find_rsssh_host);
+        .map(|hosts| {
+            hosts.into_iter().find(|host| host.0 == "rsssh").map(|host| {
+                Credentials { email: option_string(host.1.login), password: host.1.password }
+            })
+        });
 
     match result {
         Ok(r) => r.unwrap_or(no_credentials),
