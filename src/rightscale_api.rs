@@ -51,13 +51,16 @@ pub fn find_ip(email: &str, password: &str, account: i64, server: &str) -> Strin
 
     if let Ok(result) = result {
         let first_ip = result.as_array()
-            .and_then(|a| a[0].as_object())
+            .and_then(|a| a.get(0))
+            .and_then(|o| o.as_object())
             .and_then(|o| o.get("public_ip_addresses"))
-            .and_then(|a| a[0].as_string());
+            .and_then(|a| a.as_array())
+            .and_then(|a| a.get(0))
+            .and_then(|s| s.as_string());
 
         match first_ip {
             Some(ip) => ip.to_string(),
-            None => die!("Couldn't find server IP.")
+            None => die!("Couldn't find server IP. API response: {:?}", result)
         }
     } else {
         die!("Error parsing response from RightScale API: {}", result.err().unwrap());
