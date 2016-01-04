@@ -28,14 +28,15 @@ fn log_in<'a>(email: &str, password: &str, account: i64) -> CookieJar<'a> {
     cookie_jar
 }
 
-pub fn find_ip(email: &str, password: &str, account: i64, server: &str) -> String {
+pub fn find_ip(email: &str, password: &str, account: i64, server: &str, exact_match: bool) -> String {
     let client = Client::new();
     let cookie_jar = log_in(email, password, account);
+    let server_name = if exact_match { server.to_string() } else { format!("%25{}%25", server) };
     let mut body = String::new();
 
     let mut find = client
         .get(&format!("https://my.rightscale.com/api/instances?filter=name%3D{}%26state%3Doperational",
-                      server))
+                      server_name))
         .header(XApiVersion("1.6".to_string()))
         .header(XAccount(account))
         .header(Cookie::from_cookie_jar(&cookie_jar))

@@ -27,8 +27,9 @@ Usage: rsssh [connect] <host> [options]
 Options:
     -h, --help                  show this help
     -c, --config=<config-file>  use alternative config file [default: ~/.ssh/rsssh_config.toml]
+    -e, --exact-match           match the server name exactly, rather than using wildcards at the start and end
     --account=<account-id>      the account ID to use when searching for a host
-    --server=<server-name>      name of server or array; can use as a wildcard
+    --server=<server-name>      name of server or array; can use %25 as a wildcard
     --user=<user>               user to switch to after connect
     --command=<command>         command to run after connect (must include a shell; try suffixing `&& /bin/bash`)
 
@@ -68,6 +69,7 @@ struct Args {
     flag_server: Option<String>,
     flag_user: Option<String>,
     flag_command: Option<String>,
+    flag_exact_match: Option<bool>,
 }
 
 #[derive(Clone, Debug, RustcDecodable, RustcEncodable)]
@@ -76,6 +78,7 @@ struct HostConfig {
     server: Option<String>,
     user: Option<String>,
     command: Option<String>,
+    exact_match: Option<bool>,
 }
 
 fn main() {
@@ -137,20 +140,22 @@ fn connect(args: Args) {
     let host_config = read_only_config
         .get(&args.arg_host)
         .and_then(|host| toml::decode::<HostConfig>(host.clone()))
-        .unwrap_or(HostConfig { account: None, server: None, user: None, command: None });
+        .unwrap_or(HostConfig { account: None, server: None, user: None, command: None, exact_match: None });
 
     let account = args.flag_account.or(host_config.account);
     let server = args.flag_server.or(host_config.server);
+    let exact_match = args.flag_exact_match.or(host_config.exact_match).unwrap_or(false);
 
     if let (Some(email), Some(password)) = (email, password) {
         if let (Some(account), Some(server)) = (account, server) {
-            let ip = rightscale_api::find_ip(&email, &password, account, &server);
+            let ip = rightscale_api::find_ip(&email, &password, account, &server, exact_match);
 
             let new_host_config = HostConfig {
                 account: Some(account),
                 server: Some(server),
                 user: args.flag_user.or(host_config.user),
-                command: args.flag_command.or(host_config.command)
+                command: args.flag_command.or(host_config.command),
+                exact_match: args.flag_exact_match.or(host_config.exact_match),
             };
 
             config.remove(&args.arg_host);
