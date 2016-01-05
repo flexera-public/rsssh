@@ -33,8 +33,10 @@ This is a way of managing host aliases for [RightScale servers][rs]. Every time 
 
 ## Installation ##
 
-First, [install Rust][rust]. Then clone this repo and run `make install`. For more
-detailed instructions, see [building](#building).
+Binaries for OS X and Linux are available from the [GitHub release][release]. Download,
+rename to just `rsssh`, and place somewhere on the `PATH`.
+
+To build from source, see [building](#building).
 
 ## Usage ##
 
@@ -101,3 +103,4 @@ There's a [`Makefile`](Makefile)! Here are the targets:
 [r]: https://www.r-project.org/
 [ii]: http://reference.rightscale.com/api1.6/#/1.6/controller/V1_6-Instances
 [rust]: https://www.rust-lang.org/downloads.html
+[release]: https://github.com/rightscale/rsssh/releases/latest
