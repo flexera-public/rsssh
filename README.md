@@ -1,5 +1,7 @@
 # rsssh #
 
+[![Build status](https://travis-ci.org/rightscale/rsssh.svg)](https://travis-ci.org/rightscale/rsssh)
+
 <b>R</b>eally <b>s</b>imple <b>s</b>tupid <b>s</b>sh <b>h</b>andler
 
 or:
