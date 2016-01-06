@@ -1,6 +1,6 @@
 [package]
 name = "rsssh"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Sean McGivern <sean.mcgivern@rightscale.com>"]
 
 [dependencies]
