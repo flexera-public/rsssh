@@ -57,7 +57,7 @@ first server in the response (the order of which is not guaranteeed).
 To only match the server name as specified, without the leading and trailing wildcards,
 use the `--exact-match` option.
 
-To add a wildcard to a server name
+To add a wildcard to a server name, use `%25` (the URL-encoded form of the percent sign).
 
 ### User switching ###
 
