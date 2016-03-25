@@ -81,6 +81,9 @@ present.
   different host keys.
 - `-o UserKnownHostsFile=/dev/null` - for the same reason.
 
+To see an approximation of the command line used, along with other debugging information,
+pass the `--verbose` when connecting to a host.
+
 *Bonus option*: if you really hate typing, trying creating an alias to use this with `r`
 (assuming you don't already use [R][r]). That's just 20% of the characters!
 

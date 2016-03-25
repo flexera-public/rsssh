@@ -30,12 +30,12 @@ fn exec_ssh(ip: &str, command: &str, verbose: bool) {
 
 fn ssh_command_arg(user: Option<String>, command: Option<String>) -> String {
     let user_prefix = user.and_then(|u| Some(format!("sudo -u \"{}\"", u)));
-    let escaped_command = command.and_then(|c| Some(c.replace("'", "'\\''")));
+    let escaped_command = command.and_then(|c| Some(c.replace("\"", "\\\"")));
 
     match user_prefix {
         Some(u) =>
             match escaped_command {
-                Some(c) => format!("{} -- sh -cl '{}'", u, c),
+                Some(c) => format!("{} -- sh -cl \"{}\"", u, c),
                 None => format!("{} -s", u)
             },
         None => escaped_command.unwrap_or("".to_string())
@@ -65,7 +65,7 @@ mod tests {
 
         #[test]
         fn user_and_command() {
-            assert_eq!("sudo -u \"sean\" -- sh -cl 'cd / && /bin/bash'".to_string(),
+            assert_eq!("sudo -u \"sean\" -- sh -cl \"cd / && /bin/bash\"".to_string(),
                        ssh_command_arg(Some("sean".to_string()), Some("cd / && /bin/bash".to_string())));
         }
     }
