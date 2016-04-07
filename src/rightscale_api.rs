@@ -2,11 +2,17 @@ use cookie::CookieJar;
 use hyper::client::{Client, RedirectPolicy};
 use hyper::header::{Cookie, SetCookie, Location};
 use hyper::status::StatusCode;
-use rustc_serialize::json::Json;
+use rustc_serialize::json;
 use std::io::prelude::*;
 
 header! { (XApiVersion, "X-Api-Version") => [String] }
 header! { (XAccount, "X-Account") => [i64] }
+
+#[derive(Debug, RustcDecodable)]
+struct Server {
+    name: String,
+    public_ip_addresses: Vec<String>,
+}
 
 fn log_in<'a>(url: &str, email: &str, password: &str, account: i64, verbose: bool) -> (String, CookieJar<'a>) {
     let mut client = Client::new();
@@ -34,7 +40,7 @@ fn log_in<'a>(url: &str, email: &str, password: &str, account: i64, verbose: boo
     }
 }
 
-pub fn find_ip(email: &str, password: &str, account: i64, server: &str, exact_match: bool, verbose: bool) -> String {
+pub fn find_ips(email: &str, password: &str, account: i64, server: &str, exact_match: bool, verbose: bool) -> Vec<(String, String)> {
     let login_url = "https://my.rightscale.com/api/sessions";
     let client = Client::new();
     let (shard, cookie_jar) = log_in(login_url, email, password, account, verbose);
@@ -49,10 +55,10 @@ pub fn find_ip(email: &str, password: &str, account: i64, server: &str, exact_ma
 
     let mut response = client.get(&url).header(api_16).header(x_account).header(cookie).send().unwrap();
 
-    let result = match response.status {
+    let servers: Result<Vec<Server>, _> = match response.status {
         StatusCode::Ok => {
             match response.read_to_string(&mut body) {
-                Ok(_) => Json::from_str(&body),
+                Ok(_) => json::decode(&body),
                 Err(e) => {
                     die!("Error reading response from RightScale API: {}", e)
                 }
@@ -61,20 +67,12 @@ pub fn find_ip(email: &str, password: &str, account: i64, server: &str, exact_ma
         _ => die!("Unexpected response from RightScale API: {}", response.status)
     };
 
-    if let Ok(result) = result {
-        let first_ip = result.as_array()
-            .and_then(|a| a.get(0))
-            .and_then(|o| o.as_object())
-            .and_then(|o| o.get("public_ip_addresses"))
-            .and_then(|a| a.as_array())
-            .and_then(|a| a.get(0))
-            .and_then(|s| s.as_string());
-
-        match first_ip {
-            Some(ip) => ip.to_string(),
-            None => die!("Couldn't find server IP. API response: {:?}", result)
-        }
+    if let Ok(servers) = servers {
+        servers.iter().
+            filter(|s| s.public_ip_addresses.get(0).is_some()).
+            map(|s| (s.name.to_string(), s.public_ip_addresses.get(0).unwrap().to_string())).
+            collect::<Vec<(String, String)>>()
     } else {
-        die!("Error parsing JSON response from RightScale API: {}", result.err().unwrap());
+        die!("Error parsing JSON response from RightScale API: {}", servers.err().unwrap());
     }
 }

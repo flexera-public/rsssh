@@ -7,6 +7,7 @@ extern crate rustc_serialize;
 extern crate toml;
 
 use std::env;
+use std::io;
 use std::io::prelude::*;
 
 use docopt::Docopt;
@@ -28,6 +29,7 @@ Options:
     -h, --help                  show this help
     -c, --config=<config-file>  use alternative config file [default: ~/.ssh/rsssh_config.toml]
     -e, --exact-match           match the server name exactly, rather than using wildcards at the start and end
+    -p, --pick                  when more than one server or array matches, pick one interactively
     --account=<account-id>      the account ID to use when searching for a host
     --server=<server-name>      name of server or array; can use %25 as a wildcard
     --user=<user>               user to switch to after connect
@@ -71,6 +73,7 @@ struct Args {
     flag_user: Option<String>,
     flag_command: Option<String>,
     flag_exact_match: Option<bool>,
+    flag_pick: bool,
     flag_verbose: bool,
 }
 
@@ -151,7 +154,8 @@ fn connect(args: Args) {
 
     if let (Some(email), Some(password)) = (email, password) {
         if let (Some(account), Some(server)) = (account, server) {
-            let ip = rightscale_api::find_ip(&email, &password, account, &server, exact_match, verbose);
+            let ips = rightscale_api::find_ips(&email, &password, account, &server, exact_match, verbose);
+            let ip = pick_ip(ips, args.flag_pick);
 
             let new_host_config = HostConfig {
                 account: Some(account),
@@ -172,6 +176,37 @@ fn connect(args: Args) {
         }
     } else {
         die!(ERROR_MISSING_CREDENTIALS);
+    }
+}
+
+fn pick_ip(ips: Vec<(String, String)>, pick: bool) -> String {
+    let index = if pick && ips.len() > 1 {
+        for (i, item) in ips.iter().enumerate() {
+            println!("{}. {} ({})", i + 1, item.0, item.1);
+        }
+
+        println!("");
+
+        get_index(ips.len())
+    } else {
+        0
+    };
+
+    ips.get(index).unwrap().1.clone()
+}
+
+fn get_index(max: usize) -> usize {
+    let mut input = String::new();
+
+    print!("Enter a number from the list above: ");
+    io::stdout().flush().unwrap();
+
+    match io::stdin().read_line(&mut input) {
+        Ok(_) => match input.trim().parse::<usize>() {
+            Ok(i) => if i > 0 && i <= max { i - 1 } else { get_index(max) },
+            Err(_) => get_index(max)
+        },
+        Err(e) => die!("Error reading input: {}", e)
     }
 }
 
